@@ -2,7 +2,7 @@
 
 model:
   name: "microsoft/phi-3.5-mini-instruct"
-  quantization: "none"
+  quantization: "8bit"
   trust_remote_code: true
 
 dataset:
@@ -19,9 +19,9 @@ dataset:
 
 training:
   num_epochs: 3
-  per_device_train_batch_size: 4
-  per_device_eval_batch_size: 4
-  gradient_accumulation_steps: 4
+  per_device_train_batch_size: 16
+  per_device_eval_batch_size: 16
+  gradient_accumulation_steps: 1
   learning_rate: 2.0e-4
   weight_decay: 0.01
   warmup_steps: 500
@@ -60,7 +60,6 @@ eval_strategy: "steps"
 save_strategy: "steps"
 logging_dir: "./logs"
 seed: 42
-dataloader_num_workers: 0
 fp16: false
 bf16: false
-optim: "adamw_torch"
+optim: "adamw_8bit"

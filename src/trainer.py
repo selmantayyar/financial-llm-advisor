@@ -38,11 +38,22 @@ DEFAULT_BATCH_SIZE = 16
 DEFAULT_OUTPUT_DIR = "./checkpoints"
 
 
+def detect_device() -> str:
+    """Detect the best available device: cuda, mps, or cpu."""
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
 class FinancialLLMTrainer:
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
 
         self.config = config or {}
+        self.device_type = detect_device()
+        logger.info(f"Detected device: {self.device_type}")
 
         # Extract configuration with defaults
         self.model_name = self.config.get("model_name", DEFAULT_MODEL_NAME)
@@ -74,18 +85,63 @@ class FinancialLLMTrainer:
         self.gradient_checkpointing = self.config.get("gradient_checkpointing", True)
         self.fp16 = self.config.get("fp16", False)
         self.bf16 = self.config.get("bf16", False)
-        self.optim = self.config.get("optim", "adamw_torch")
+        self.optim = self.config.get("optim", "adamw_8bit")
         self.seed = self.config.get("seed", 42)
 
-        # Quantization settings - disabled by default (bitsandbytes requires CUDA)
-        self.load_in_8bit = self.config.get("load_in_8bit", False)
+        # Quantization settings (config values = CUDA-optimal defaults)
+        self.load_in_8bit = self.config.get("load_in_8bit", True)
         self.load_in_4bit = self.config.get("load_in_4bit", False)
+
+        # Auto-adjust settings for the detected device
+        self._apply_device_overrides()
 
         # Initialize state
         self.model: Optional[PreTrainedModel] = None
         self.tokenizer: Optional[PreTrainedTokenizer] = None
         self.trainer: Optional[Trainer] = None
         self.peft_config: Optional[LoraConfig] = None
+
+    def _apply_device_overrides(self) -> None:
+        """Override config settings that are incompatible with the detected device."""
+        if self.device_type == "cuda":
+            return
+
+        overrides: List[str] = []
+
+        # bitsandbytes quantization is CUDA-only
+        if self.load_in_8bit or self.load_in_4bit:
+            self.load_in_8bit = False
+            self.load_in_4bit = False
+            overrides.append("quantization disabled (bitsandbytes requires CUDA)")
+
+        # adamw_8bit optimizer is CUDA-only
+        if self.optim == "adamw_8bit":
+            self.optim = "adamw_torch"
+            overrides.append("optimizer adamw_8bit -> adamw_torch")
+
+        # fp16 is not well-supported on MPS; prefer no mixed precision or bf16
+        if self.device_type == "mps" and self.fp16:
+            self.fp16 = False
+            overrides.append("fp16 disabled (not stable on MPS)")
+
+        # Reduce batch size to compensate for no quantization, keep effective batch the same
+        config_batch = self.config.get("per_device_train_batch_size", DEFAULT_BATCH_SIZE)
+        if config_batch > 4:
+            factor = config_batch // 4
+            self.per_device_train_batch_size = 4
+            self.per_device_eval_batch_size = 4
+            self.gradient_accumulation_steps = max(
+                self.gradient_accumulation_steps * factor, factor
+            )
+            overrides.append(
+                f"batch {config_batch} -> 4 (grad_accum={self.gradient_accumulation_steps}) "
+                f"for memory without quantization"
+            )
+
+        if overrides:
+            logger.info(f"Device overrides for {self.device_type}:")
+            for o in overrides:
+                logger.info(f"  - {o}")
 
     def load_model(self, model_name: Optional[str] = None) -> PreTrainedModel:
 
@@ -222,8 +278,10 @@ class FinancialLLMTrainer:
             logging_dir=str(output_path / "logs"),
             report_to=report_to,
             seed=self.seed,
-            dataloader_num_workers=self.config.get("dataloader_num_workers", 0),
-            dataloader_pin_memory=False,
+            dataloader_num_workers=(
+                self.config.get("dataloader_num_workers", 4) if self.device_type == "cuda" else 0
+            ),
+            dataloader_pin_memory=(self.device_type == "cuda"),
             remove_unused_columns=False,
             label_names=["labels"],
             load_best_model_at_end=True,
