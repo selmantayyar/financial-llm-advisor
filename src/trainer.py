@@ -167,6 +167,16 @@ class FinancialLLMTrainer:
         else:
             quantization_config = None
 
+        # Use flash attention 2 on CUDA if available, falls back to eager otherwise
+        attn_impl = "eager"
+        if self.device_type == "cuda":
+            try:
+                import flash_attn  # noqa: F401
+                attn_impl = "flash_attention_2"
+                logger.info("Using Flash Attention 2")
+            except ImportError:
+                logger.info("flash-attn not installed, using eager attention")
+
         # Load model
         # Temporarily disable _init_weights to avoid dtype errors with quantized weights.
         # All weights come from pretrained checkpoint so re-initialization is unnecessary.
@@ -180,6 +190,7 @@ class FinancialLLMTrainer:
                 device_map="auto",
                 trust_remote_code=True,
                 torch_dtype=torch.float16,
+                attn_implementation=attn_impl,
             )
         finally:
             modeling_utils.PreTrainedModel._initialize_missing_keys = _orig
