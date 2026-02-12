@@ -167,11 +167,15 @@ class FinancialLLMTrainer:
         else:
             quantization_config = None
 
-        # Use PyTorch's built-in SDPA on CUDA (uses FlashAttention kernels automatically)
+        # Use flash_attention_2 if available, otherwise fall back to eager
         attn_impl = "eager"
         if self.device_type == "cuda":
-            attn_impl = "sdpa"
-            logger.info("Using PyTorch SDPA (FlashAttention via torch.nn.functional.scaled_dot_product_attention)")
+            try:
+                import flash_attn  # noqa: F401
+                attn_impl = "flash_attention_2"
+                logger.info("Using Flash Attention 2")
+            except ImportError:
+                logger.info("flash-attn not installed, using eager attention")
 
         # Load model
         # Temporarily disable _init_weights to avoid dtype errors with quantized weights.
