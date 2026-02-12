@@ -183,7 +183,7 @@ class FinancialLLMTrainer:
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_name,
                 quantization_config=quantization_config,
-                device_map="auto",
+                device_map={"": 0} if self.device_type == "cuda" else "auto",
                 trust_remote_code=True,
                 torch_dtype=torch.float16,
                 attn_implementation=attn_impl,
