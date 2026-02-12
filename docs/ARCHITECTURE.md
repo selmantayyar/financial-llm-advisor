@@ -194,7 +194,7 @@ advisor.merge_lora()  # Single model file for production
 ### Generation Parameters
 ```python
 generation_config = {
-    "max_new_tokens": 512,
+    "max_new_tokens": 1024,
     "temperature": 0.7,  # Deterministic but creative
     "top_p": 0.95,       # Nucleus sampling
     "top_k": 50,

@@ -83,7 +83,7 @@ class FinancialAdvisor:
 
         # Generation configuration
         self.generation_config = {
-            "max_new_tokens": 512,
+            "max_new_tokens": 1024,
             "temperature": 0.7,
             "top_p": 0.95,
             "top_k": 50,

@@ -18,12 +18,12 @@ generation:
   top_p: 0.95
   top_k: 50
   repetition_penalty: 1.0
-  max_new_tokens: 512
+  max_new_tokens: 1024
   min_new_tokens: 10
   length_penalty: 1.0
 
 tokenizer:
-  max_length: 512
+  max_length: 1024
   padding: "max_length"
   truncation: true
 

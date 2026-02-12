@@ -12,7 +12,7 @@ dataset:
     validation: 0.1
     test: 0.1
   subset_size: 50000
-  max_seq_length: 512
+  max_seq_length: 1024
   filtering:
     min_length: 50
     max_length: 1000
@@ -42,7 +42,7 @@ lora:
   task_type: "CAUSAL_LM"
 
 generation:
-  max_new_tokens: 512
+  max_new_tokens: 1024
   temperature: 0.7
   top_p: 0.95
   top_k: 50
