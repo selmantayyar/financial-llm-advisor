@@ -80,10 +80,12 @@ def main():
         logger.info("Loading base model without LoRA...")
         advisor = FinancialAdvisor()
 
-    # Load test dataset
+    # Load test dataset (raw, not tokenized — evaluator needs original text columns)
     logger.info("Loading test dataset...")
     loader = DatasetLoader({})
-    test_ds = loader.load_test_dataset()
+    raw_dataset = loader.load_raw_dataset()
+    filtered_dataset = loader.filter_dataset(raw_dataset)
+    _, _, test_ds = loader.create_splits(filtered_dataset)
     logger.info(f"Test dataset size: {len(test_ds)}")
 
     # Initialize evaluator

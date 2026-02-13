@@ -84,6 +84,19 @@ class FinancialLLMEvaluator:
 
         return generated_text.strip(), latency_ms
 
+    def _extract_prompt_reference(self, example: Dict[str, Any]) -> Tuple[str, str]:
+        """Extract prompt and reference from various dataset formats."""
+        if "user" in example and "assistant" in example:
+            return str(example["user"]).strip(), str(example["assistant"]).strip()
+        elif "instruction" in example and "output" in example:
+            prompt = str(example.get("instruction", ""))
+            if example.get("input"):
+                prompt += f"\n\nContext: {example['input']}"
+            return prompt.strip(), str(example.get("output", "")).strip()
+        elif "question" in example and "answer" in example:
+            return str(example["question"]).strip(), str(example["answer"]).strip()
+        return "", ""
+
     def _normalize_text(self, text: str) -> str:
 
         # Lowercase
@@ -141,15 +154,8 @@ class FinancialLLMEvaluator:
         latencies = []
 
         for i, example in enumerate(test_dataset):
-            # Extract prompt and reference
-            if "instruction" in example:
-                prompt = str(example.get("instruction", ""))
-                if example.get("input"):
-                    prompt += f"\n\nContext: {example['input']}"
-                reference = str(example.get("output", ""))
-            else:
-                prompt = str(example.get("question", example.get("prompt", "")))
-                reference = str(example.get("answer", example.get("response", "")))
+            # Extract prompt and reference from various dataset formats
+            prompt, reference = self._extract_prompt_reference(example)
 
             if not prompt or not reference:
                 continue
@@ -215,13 +221,7 @@ class FinancialLLMEvaluator:
         total = 0
 
         for i, example in enumerate(test_dataset):
-            # Extract question and reference answer
-            if "instruction" in example:
-                question = str(example.get("instruction", ""))
-                reference = str(example.get("output", ""))
-            else:
-                question = str(example.get("question", example.get("prompt", "")))
-                reference = str(example.get("answer", example.get("response", "")))
+            question, reference = self._extract_prompt_reference(example)
 
             if not question or not reference:
                 continue
@@ -291,7 +291,9 @@ class FinancialLLMEvaluator:
 
         for i, example in enumerate(test_dataset):
             # Get text with entities
-            if "text" in example:
+            if "assistant" in example:
+                text = str(example["assistant"])
+            elif "text" in example:
                 text = str(example["text"])
             elif "output" in example:
                 text = str(example["output"])

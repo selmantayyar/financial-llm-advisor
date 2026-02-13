@@ -67,7 +67,7 @@ class FinancialAdvisor:
         self,
         base_model: str = DEFAULT_MODEL_NAME,
         lora_weights: Optional[str] = None,
-        quantization: str = "8bit",
+        quantization: str = "none",
         device: Optional[str] = None,
         system_prompt: Optional[str] = None,
     ):
@@ -115,6 +115,16 @@ class FinancialAdvisor:
         else:
             quantization_config = None
 
+        # Use flash attention on CUDA if available
+        attn_impl = "eager"
+        if torch.cuda.is_available():
+            try:
+                import flash_attn  # noqa: F401
+                attn_impl = "flash_attention_2"
+                logger.info("Using Flash Attention 2")
+            except ImportError:
+                logger.info("flash-attn not installed, using eager attention")
+
         # Load base model
         # Temporarily disable _init_weights to avoid dtype errors with Phi-3.5 remote code.
         # All weights come from pretrained checkpoint so re-initialization is unnecessary.
@@ -125,9 +135,10 @@ class FinancialAdvisor:
             self.model = AutoModelForCausalLM.from_pretrained(
                 self.base_model,
                 quantization_config=quantization_config,
-                device_map="auto",
+                device_map={"": 0} if torch.cuda.is_available() else "auto",
                 trust_remote_code=True,
                 torch_dtype=torch.bfloat16,
+                attn_implementation=attn_impl,
             )
         finally:
             modeling_utils.PreTrainedModel._initialize_missing_keys = _orig
