@@ -167,15 +167,21 @@ class FinancialLLMTrainer:
         else:
             quantization_config = None
 
-        # Use flash_attention_2 if available, otherwise fall back to eager
+        # Select best available attention implementation
         attn_impl = "eager"
         if self.device_type == "cuda":
-            try:
-                import flash_attn  # noqa: F401
-                attn_impl = "flash_attention_2"
-                logger.info("Using Flash Attention 2")
-            except ImportError:
-                logger.info("flash-attn not installed, using eager attention")
+            # SDPA is built into PyTorch 2.0+ and uses FlashAttention/MemEfficient
+            # kernels automatically — no extra packages needed
+            if hasattr(torch.nn.functional, "scaled_dot_product_attention"):
+                attn_impl = "sdpa"
+                logger.info("Using SDPA (PyTorch built-in efficient attention)")
+            else:
+                try:
+                    import flash_attn  # noqa: F401
+                    attn_impl = "flash_attention_2"
+                    logger.info("Using Flash Attention 2")
+                except ImportError:
+                    logger.info("No efficient attention available, using eager")
 
         # Load model using transformers' built-in Phi-3 implementation
         # (trust_remote_code=False avoids incompatibilities between Phi-3.5's

@@ -359,9 +359,10 @@ class FinancialLLMEvaluator:
         self,
         num_samples: int = 100,
         warmup_samples: int = 5,
+        max_new_tokens: int = 256,
     ) -> Dict[str, float]:
 
-        logger.info(f"Evaluating latency with {num_samples} samples...")
+        logger.info(f"Evaluating latency with {num_samples} samples (max_new_tokens={max_new_tokens})...")
 
         # Test prompts of varying lengths
         test_prompts = [
@@ -373,13 +374,14 @@ class FinancialLLMEvaluator:
         ]
 
         latencies = []
+        tokens_generated = []
 
         # Warmup
         logger.info(f"Running {warmup_samples} warmup samples...")
         for _ in range(warmup_samples):
             prompt = test_prompts[0]
             formatted = f"<|user|>\n{prompt}<|end|>\n<|assistant|>\n"
-            self._generate_response(formatted)
+            self._generate_response(formatted, max_new_tokens=max_new_tokens)
 
         # Benchmark
         for i in range(num_samples):
@@ -387,8 +389,11 @@ class FinancialLLMEvaluator:
             formatted = f"<|user|>\n{prompt}<|end|>\n<|assistant|>\n"
 
             try:
-                _, latency = self._generate_response(formatted)
+                response, latency = self._generate_response(formatted, max_new_tokens=max_new_tokens)
                 latencies.append(latency)
+                # Estimate tokens generated (words * ~1.3 tokens/word)
+                num_tokens = len(response.split()) * 1.3
+                tokens_generated.append(num_tokens)
 
                 if (i + 1) % 20 == 0:
                     logger.info(f"Benchmark progress: {i + 1}/{num_samples}")
@@ -407,6 +412,10 @@ class FinancialLLMEvaluator:
             }
 
         latencies = np.array(latencies)
+        tokens_generated = np.array(tokens_generated)
+
+        # Calculate throughput (tokens per second)
+        tokens_per_sec = tokens_generated / (latencies / 1000.0)
 
         results = {
             "latency_p50": float(np.percentile(latencies, 50)),
@@ -416,10 +425,14 @@ class FinancialLLMEvaluator:
             "latency_std": float(np.std(latencies)),
             "latency_min": float(np.min(latencies)),
             "latency_max": float(np.max(latencies)),
+            "tokens_per_sec_mean": float(np.mean(tokens_per_sec)),
+            "tokens_per_sec_p50": float(np.percentile(tokens_per_sec, 50)),
+            "avg_tokens_generated": float(np.mean(tokens_generated)),
             "num_samples": len(latencies),
         }
 
         logger.info(f"Latency p50: {results['latency_p50']:.1f}ms, p99: {results['latency_p99']:.1f}ms")
+        logger.info(f"Throughput: {results['tokens_per_sec_mean']:.1f} tokens/sec")
         return results
 
     def estimate_cost(
