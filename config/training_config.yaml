@@ -2,7 +2,7 @@
 
 model:
   name: "microsoft/phi-3.5-mini-instruct"
-  quantization: "8bit"
+  quantization: "none"
   trust_remote_code: true
 
 dataset:

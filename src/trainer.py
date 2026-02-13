@@ -88,8 +88,8 @@ class FinancialLLMTrainer:
         self.optim = self.config.get("optim", "adamw_8bit")
         self.seed = self.config.get("seed", 42)
 
-        # Quantization settings (config values = CUDA-optimal defaults)
-        self.load_in_8bit = self.config.get("load_in_8bit", True)
+        # Quantization settings
+        self.load_in_8bit = self.config.get("load_in_8bit", False)
         self.load_in_4bit = self.config.get("load_in_4bit", False)
 
         # Auto-adjust settings for the detected device
@@ -160,7 +160,7 @@ class FinancialLLMTrainer:
             logger.info("Using 4-bit quantization")
             quantization_config = BitsAndBytesConfig(
                 load_in_4bit=True,
-                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_compute_dtype=torch.bfloat16,
                 bnb_4bit_use_double_quant=True,
                 bnb_4bit_quant_type="nf4",
             )
@@ -189,7 +189,7 @@ class FinancialLLMTrainer:
                 quantization_config=quantization_config,
                 device_map={"": 0} if self.device_type == "cuda" else "auto",
                 trust_remote_code=True,
-                torch_dtype=torch.float16,
+                torch_dtype=torch.bfloat16 if self.bf16 else torch.float16,
                 attn_implementation=attn_impl,
             )
         finally:
