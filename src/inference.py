@@ -241,6 +241,7 @@ class FinancialAdvisor:
                 pad_token_id=self.tokenizer.pad_token_id,
                 return_dict_in_generate=True,
                 output_scores=True,
+                use_cache=False,
             )
 
         end_time = time.perf_counter()

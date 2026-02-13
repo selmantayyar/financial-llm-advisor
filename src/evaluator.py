@@ -70,6 +70,7 @@ class FinancialLLMEvaluator:
                 top_p=self.generation_config.get("top_p", 0.95),
                 do_sample=self.generation_config.get("do_sample", True),
                 pad_token_id=self.tokenizer.pad_token_id,
+                use_cache=False,
             )
 
         end_time = time.perf_counter()
