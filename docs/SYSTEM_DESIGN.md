@@ -5,7 +5,7 @@
 1. **Domain Expertise:** Create LLM that understands financial concepts better than general-purpose models
 2. **Cost Efficiency:** Reduce inference costs by 60% compared to GPT-4
 3. **Latency:** Achieve <300ms p99 latency for production use
-4. **Reproducibility:** Enable anyone to train and deploy in <5 hours
+4. **Reproducibility:** Enable anyone to train and deploy in <=10 hours
 5. **Transparency:** Provide clear reasoning and confidence scores
 
 ---
@@ -67,7 +67,7 @@ Our Phi-3.5 (fine-tuned): 78.1% financial reasoning
 
 **Reasoning:**
 - **Quality > Quantity:** 50K curated examples > 500K noisy examples
-- **Cost:** 3 epochs on 50K = 5-6 hours (vs 24 hours for 500K)
+- **Cost:** 3 epochs on 50K = 8-10 hours (vs 48 hours for 500K)
 - **Overfitting:** Enough data to avoid overfitting with small model
 - **Diversity:** Covers reasoning, Q&A, NER, sentiment (multi-task)
 
@@ -184,11 +184,11 @@ User Query
 ## 💰 Cost Analysis
 
 ### Training Cost
-| Component | Cost |
-|-----------|------|
-| AWS g4dn.2xlarge (T4 GPU) | $0.35/hour |
-| Training time | 5-6 hours |
-| **Total Training Cost** | **~$2.50** |
+| Component                                             | Cost       |
+|-------------------------------------------------------|------------|
+| Runpod RTX 4090 (20 GB VRAM 20 GB Storage 40 GB RAM)  | $0.59/hour 
+| Training time                                         | 8-10 hours |
+| **Total Training Cost**                               | **~$6**    |
 
 ### Inference Cost (Per 1M Tokens)
 | Model | Cost |
@@ -205,11 +205,11 @@ User Query
 ## 🚀 Deployment Strategy
 
 ### Development
-- Local training on RTX 3060 Ti (6-8 hours)
+- Local training on RTX 3060 Ti (10-12 hours)
 - Fast iteration on smaller subsets
 
 ### Production
-- AWS g4dn.xlarge (continuous inference)
+- Runpod RTX 4090 (continuous inference)
 - 100+ requests/second with p99 latency <300ms
 - Auto-scaling with load
 
@@ -244,7 +244,7 @@ Improvement: +19.4%
 Latency (p99): 450ms → 185ms (-58.9%)
 Cost per 1M tokens: $0.45 → $0.18 (-60%)
 Model size: 3.8B (same, +120MB LoRA)
-Training time: 5-6 hours
+Training time: 8-10 hours
 ```
 
 ---

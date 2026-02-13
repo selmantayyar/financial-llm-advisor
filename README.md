@@ -28,7 +28,7 @@ A production-grade fine-tuned language model for institutional investment decisi
 - **Domain-Specific:** Fine-tuned on 50K financial instruction-following examples
 - **Production-Ready:** <300ms latency, quantization support, API endpoint
 - **Cost-Efficient:** 60% cheaper than GPT-4, runs on consumer GPUs
-- **Reproducible:** Full code + weights, trainable in 4 hours for ~$10
+- **Reproducible:** Full code + weights, trainable in 10 hours for ~$6
 - **Well-Documented:** System design, benchmarks, implementation details
 
 ---
@@ -97,17 +97,22 @@ Investment Analysis + Confidence Score
 
 ## 💻 Hardware Requirements
 
-**Minimum:**
-- 8GB VRAM (with 8-bit quantization)
+**Inference:**
+- 8GB VRAM minimum (with 8-bit quantization)
 - 10GB storage
 
-**Recommended:**
-- 16GB VRAM (RTX 3060 Ti, RTX 4070)
+**Training:**
+- 16GB VRAM minimum (batch=1, seq_len=512, 8-bit quantization, gradient checkpointing)
+- 24GB VRAM recommended (batch=4, seq_len=1024, 8-bit quantization, gradient checkpointing)
 - 20GB storage
 
+**Recommended GPUs:**
+- Training: RTX 4090 (24GB), A100 (40/80GB)
+- Inference: RTX 3060 Ti (8GB), RTX 4070 (12GB)
+
 **Cloud (cheapest):**
-- AWS g4dn.2xlarge: $0.35/hour
-- Cloud cost for full training: ~$5-10
+- RunPod RTX 4090: ~$0.59/hour
+- Cloud cost for full training: ~$6-7
 
 ---
 
@@ -116,8 +121,8 @@ Investment Analysis + Confidence Score
 - **Base Model:** microsoft/phi-3.5-mini-instruct (3.8B parameters)
 - **Dataset:** Josephgflowers/Finance-Instruct-500k (using 50K subset)
 - **Training Method:** SFT with LoRA (r=16)
-- **Training Time:** 5-6 hours on RTX 4090
-- **Batch Size:** 16 (per device)
+- **Training Time:** 8-10 hours on RTX 4090
+- **Batch Size:** 4 (per device)
 - **Learning Rate:** 2e-4
 - **Epochs:** 3
 
@@ -175,7 +180,7 @@ bash scripts/evaluate.sh
 # Expected results: See BENCHMARKING.md
 ```
 
-**Full training reproducible cost:** ~$10 + 5-6 hours
+**Full training reproducible cost:** ~$6 + 8-10 hours
 
 ---
 

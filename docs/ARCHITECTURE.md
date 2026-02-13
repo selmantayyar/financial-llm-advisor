@@ -113,9 +113,9 @@ For each epoch:
     7. Evaluate on val set every 500 steps
 
 Expected:
-- Total steps: 7,500 (40K examples / 16 batch size * 3 epochs)
+- Total steps: 7,500 (50K examples / 4 batch size * 3 epochs)
 - Checkpoints: 15
-- Training time: 5-6 hours on RTX 4090
+- Training time: 8-10 hours on RTX 4090
 ```
 
 ### Monitoring with Weights & Biases
