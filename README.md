@@ -40,8 +40,8 @@ A production-grade fine-tuned language model for institutional investment decisi
 git clone https://github.com/selmantayyar/financial-llm-advisor.git
 cd financial-llm-advisor
 
-# Create virtual environment
-uv venv
+# Create virtual environment. Python 3.12 is needed for the flash attention compatible on the pod.
+uv venv --python 3.12
 source .venv/bin/activate  # On Windows: venv\\Scripts\\activate
 
 # Install dependencies
@@ -51,6 +51,10 @@ uv sync
 ### Train the Model
 ```shell
 bash scripts/train.sh
+```
+OR
+```shell
+nohup scripts/train.sh > "logs/training_output_$(date +%Y-%m-%d_%H-%M).log" 2>&1 &
 ```
 
 ### Run Inference

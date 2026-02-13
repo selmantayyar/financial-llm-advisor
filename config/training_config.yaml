@@ -61,5 +61,5 @@ save_strategy: "steps"
 logging_dir: "./logs"
 seed: 42
 fp16: false
-bf16: false
+bf16: true
 optim: "adamw_8bit"
