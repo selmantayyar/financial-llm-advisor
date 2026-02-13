@@ -3,7 +3,7 @@
 model:
   name: "microsoft/phi-3.5-mini-instruct"
   quantization: "none"
-  trust_remote_code: true
+  trust_remote_code: false
 
 dataset:
   name: "Josephgflowers/Finance-Instruct-500k"

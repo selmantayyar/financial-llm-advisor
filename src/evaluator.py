@@ -8,22 +8,8 @@ import re
 import numpy as np
 import torch
 from datasets import Dataset
-from transformers import PreTrainedModel, PreTrainedTokenizer, DynamicCache
+from transformers import PreTrainedModel, PreTrainedTokenizer
 import logging
-
-# Phi-3.5 custom model code references DynamicCache attributes that were removed
-# in transformers >=5.x. Restore them so KV caching works correctly.
-if not hasattr(DynamicCache, "seen_tokens"):
-    DynamicCache.seen_tokens = property(lambda self: self.get_seq_length())
-if not hasattr(DynamicCache, "get_max_length"):
-    DynamicCache.get_max_length = lambda self: getattr(self, "max_cache_len", None)
-if not hasattr(DynamicCache, "get_usable_length"):
-    def _get_usable_length(self, new_seq_length, max_length=None):
-        max_length = self.get_max_length() if max_length is None else max_length
-        if max_length is not None and self.get_seq_length() + new_seq_length > max_length:
-            return max_length - new_seq_length
-        return self.get_seq_length()
-    DynamicCache.get_usable_length = _get_usable_length
 
 logger = logging.getLogger(__name__)
 

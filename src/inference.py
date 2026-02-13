@@ -9,7 +9,6 @@ import torch
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
-    DynamicCache,
     PreTrainedModel,
     PreTrainedTokenizer,
     BitsAndBytesConfig,
@@ -20,20 +19,6 @@ from pydantic import BaseModel, Field
 import numpy as np
 
 from .utils import extract_entities, flatten_entities, create_prompt
-
-# Phi-3.5 custom model code references DynamicCache attributes that were removed
-# in transformers >=5.x. Restore them so KV caching works correctly.
-if not hasattr(DynamicCache, "seen_tokens"):
-    DynamicCache.seen_tokens = property(lambda self: self.get_seq_length())
-if not hasattr(DynamicCache, "get_max_length"):
-    DynamicCache.get_max_length = lambda self: getattr(self, "max_cache_len", None)
-if not hasattr(DynamicCache, "get_usable_length"):
-    def _get_usable_length(self, new_seq_length, max_length=None):
-        max_length = self.get_max_length() if max_length is None else max_length
-        if max_length is not None and self.get_seq_length() + new_seq_length > max_length:
-            return max_length - new_seq_length
-        return self.get_seq_length()
-    DynamicCache.get_usable_length = _get_usable_length
 
 logger = logging.getLogger(__name__)
 
@@ -140,28 +125,20 @@ class FinancialAdvisor:
             except ImportError:
                 logger.info("flash-attn not installed, using eager attention")
 
-        # Load base model
-        # Temporarily disable _init_weights to avoid dtype errors with Phi-3.5 remote code.
-        # All weights come from pretrained checkpoint so re-initialization is unnecessary.
-        from transformers import modeling_utils
-        _orig = modeling_utils.PreTrainedModel._initialize_missing_keys
-        modeling_utils.PreTrainedModel._initialize_missing_keys = lambda self, *a, **kw: None
-        try:
-            self.model = AutoModelForCausalLM.from_pretrained(
-                self.base_model,
-                quantization_config=quantization_config,
-                device_map={"": 0} if torch.cuda.is_available() else "auto",
-                trust_remote_code=True,
-                torch_dtype=torch.bfloat16,
-                attn_implementation=attn_impl,
-            )
-        finally:
-            modeling_utils.PreTrainedModel._initialize_missing_keys = _orig
+        # Load base model using transformers' built-in Phi-3 implementation
+        # (trust_remote_code=False avoids incompatibilities between Phi-3.5's
+        # custom remote code and transformers >=5.x cache/attention APIs)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            self.base_model,
+            quantization_config=quantization_config,
+            device_map={"": 0} if torch.cuda.is_available() else "auto",
+            torch_dtype=torch.bfloat16,
+            attn_implementation=attn_impl,
+        )
 
         # Load tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(
             self.base_model,
-            trust_remote_code=True,
         )
 
         # Ensure pad token is set

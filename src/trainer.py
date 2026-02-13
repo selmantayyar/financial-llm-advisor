@@ -177,28 +177,20 @@ class FinancialLLMTrainer:
             except ImportError:
                 logger.info("flash-attn not installed, using eager attention")
 
-        # Load model
-        # Temporarily disable _init_weights to avoid dtype errors with quantized weights.
-        # All weights come from pretrained checkpoint so re-initialization is unnecessary.
-        from transformers import modeling_utils
-        _orig = modeling_utils.PreTrainedModel._initialize_missing_keys
-        modeling_utils.PreTrainedModel._initialize_missing_keys = lambda self, *a, **kw: None
-        try:
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                quantization_config=quantization_config,
-                device_map={"": 0} if self.device_type == "cuda" else "auto",
-                trust_remote_code=True,
-                torch_dtype=torch.bfloat16 if self.bf16 else torch.float16,
-                attn_implementation=attn_impl,
-            )
-        finally:
-            modeling_utils.PreTrainedModel._initialize_missing_keys = _orig
+        # Load model using transformers' built-in Phi-3 implementation
+        # (trust_remote_code=False avoids incompatibilities between Phi-3.5's
+        # custom remote code and transformers >=5.x cache/attention APIs)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name,
+            quantization_config=quantization_config,
+            device_map={"": 0} if self.device_type == "cuda" else "auto",
+            torch_dtype=torch.bfloat16 if self.bf16 else torch.float16,
+            attn_implementation=attn_impl,
+        )
 
         # Load tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_name,
-            trust_remote_code=True,
         )
 
         # Ensure pad token is set
