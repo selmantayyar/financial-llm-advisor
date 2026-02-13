@@ -54,6 +54,7 @@ bash scripts/train.sh
 ```
 OR
 ```shell
+mkdir logs 
 nohup scripts/train.sh > "logs/training_output_$(date +%Y-%m-%d_%H-%M).log" 2>&1 &
 ```
 

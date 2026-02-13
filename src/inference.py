@@ -116,13 +116,21 @@ class FinancialAdvisor:
             quantization_config = None
 
         # Load base model
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.base_model,
-            quantization_config=quantization_config,
-            device_map="auto",
-            trust_remote_code=True,
-            torch_dtype=torch.float16 if not quantization_config else None,
-        )
+        # Temporarily disable _init_weights to avoid dtype errors with Phi-3.5 remote code.
+        # All weights come from pretrained checkpoint so re-initialization is unnecessary.
+        from transformers import modeling_utils
+        _orig = modeling_utils.PreTrainedModel._initialize_missing_keys
+        modeling_utils.PreTrainedModel._initialize_missing_keys = lambda self, *a, **kw: None
+        try:
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.base_model,
+                quantization_config=quantization_config,
+                device_map="auto",
+                trust_remote_code=True,
+                torch_dtype=torch.bfloat16,
+            )
+        finally:
+            modeling_utils.PreTrainedModel._initialize_missing_keys = _orig
 
         # Load tokenizer
         self.tokenizer = AutoTokenizer.from_pretrained(

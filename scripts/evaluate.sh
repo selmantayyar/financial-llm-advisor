@@ -12,7 +12,7 @@ echo "========================================"
 MODEL_PATH="${1:-./checkpoints/final_model}"
 OUTPUT_PATH="${2:-results/evaluation_metrics.json}"
 NUM_SAMPLES="${3:-100}"
-PYTHON_EXEC="${PYTHON_EXEC:-python}"
+PYTHON_EXEC=.venv/bin/python
 
 # Check if Python is available
 if ! command -v $PYTHON_EXEC &> /dev/null; then
