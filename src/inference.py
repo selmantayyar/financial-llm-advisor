@@ -9,6 +9,7 @@ import torch
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
+    DynamicCache,
     PreTrainedModel,
     PreTrainedTokenizer,
     BitsAndBytesConfig,
@@ -19,6 +20,11 @@ from pydantic import BaseModel, Field
 import numpy as np
 
 from .utils import extract_entities, flatten_entities, create_prompt
+
+# Phi-3.5 custom model code references DynamicCache.seen_tokens, which was removed
+# in transformers >=5.x. Restore it as a property so KV caching works correctly.
+if not hasattr(DynamicCache, "seen_tokens"):
+    DynamicCache.seen_tokens = property(lambda self: self.get_seq_length())
 
 logger = logging.getLogger(__name__)
 
@@ -252,7 +258,7 @@ class FinancialAdvisor:
                 pad_token_id=self.tokenizer.pad_token_id,
                 return_dict_in_generate=True,
                 output_scores=True,
-                use_cache=False,
+                use_cache=True,
             )
 
         end_time = time.perf_counter()

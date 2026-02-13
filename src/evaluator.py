@@ -8,8 +8,13 @@ import re
 import numpy as np
 import torch
 from datasets import Dataset
-from transformers import PreTrainedModel, PreTrainedTokenizer
+from transformers import PreTrainedModel, PreTrainedTokenizer, DynamicCache
 import logging
+
+# Phi-3.5 custom model code references DynamicCache.seen_tokens, which was removed
+# in transformers >=5.x. Restore it as a property so KV caching works correctly.
+if not hasattr(DynamicCache, "seen_tokens"):
+    DynamicCache.seen_tokens = property(lambda self: self.get_seq_length())
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +75,7 @@ class FinancialLLMEvaluator:
                 top_p=self.generation_config.get("top_p", 0.95),
                 do_sample=self.generation_config.get("do_sample", True),
                 pad_token_id=self.tokenizer.pad_token_id,
-                use_cache=False,
+                use_cache=True,
             )
 
         end_time = time.perf_counter()
