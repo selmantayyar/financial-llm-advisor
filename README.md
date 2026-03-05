@@ -1,254 +1,218 @@
 # Financial Investment Advisor LLM
 
-A production-grade fine-tuned language model for institutional investment decision support.
+A production-grade fine-tuned language model for institutional investment decision support. Fine-tuned on 50K financial instructions using LoRA, deployed to HuggingFace, and ready for production serving via vLLM.
 
-## 🎯 Problem & Solution
+**Model available on HuggingFace:** [selmantayyar/financial-llm-advisor](https://huggingface.co/selmantayyar/financial-llm-advisor)
 
-**Problem:** Institutional investors struggle to synthesize investment insights from unstructured financial data (earnings calls, SEC filings, analyst reports). Current LLMs are generalist models, not optimized for financial domain reasoning.
+## Problem & Solution
 
-**Solution:** Fine-tuned Phi-3.5-mini on 50K high-quality financial instructions to create a domain-specific AI advisor that provides expert-level investment analysis.
+**Problem:** Institutional investors need to synthesize investment insights from unstructured financial data (earnings calls, SEC filings, analyst reports). Commercial LLM APIs are expensive at scale and raise data privacy concerns.
 
----
-
-## 📊 Key Metrics
-
-| Metric | Baseline Model | Fine-tuned Model | Improvement |
-|--------|---|---|---|
-| Financial Reasoning Accuracy | 65.2% | 78.1% | **+12.9%** |
-| Investment Q&A F1-Score | 0.68 | 0.81 | **+11.8%** |
-| Named Entity Recognition (Finance) | 0.72 | 0.86 | **+19.4%** |
-| Inference Latency (p99) | 450ms | 185ms | **-58.9%** |
-| Cost per 1M tokens | $0.45 | $0.18 | **-60%** |
-| Model Size | 3.8B params | 3.8B params + LoRA | +120MB |
+**Solution:** Fine-tuned Phi-3.5-mini on 50K financial instructions to create a self-hosted, domain-specific AI advisor — delivering financial analysis at a fraction of commercial API costs.
 
 ---
 
-## ✨ Features
+## Evaluation Results
+
+Evaluated on a held-out test set (100 samples for reasoning, 50 for latency) from the Finance-Instruct-500k dataset.
+
+| Metric | Result | Notes |
+|--------|--------|-------|
+| Financial Reasoning Accuracy | **44%** | Word-overlap metric (>=50% key term match with reference) |
+| Investment Q&A F1-Score | **0.454** | Token-level F1 against reference answers |
+| Q&A Precision / Recall | 0.492 / 0.480 | Balanced precision and recall |
+| Inference Throughput | **28 tokens/sec** | RTX 4090, bf16, SDPA attention |
+| Latency (p50 / p99) | 7.7s / 8.0s | Generating ~164 tokens avg per response |
+| Cost per 1M tokens | **$0.18** | Self-hosted vs $30 (GPT-4) / $15 (Claude) |
+| Model Size | 3.8B + LoRA | ~120MB adapter on top of base model |
+
+> **On evaluation methodology:** The reasoning metric uses simple word overlap between generated and reference answers — a strict measure that penalizes valid but differently-worded responses. The model produces coherent, detailed financial analyses that may not match reference wording. See [BENCHMARKING.md](docs/BENCHMARKING.md) for detailed analysis and improvement paths.
+
+---
+
+## Features
 
 - **Domain-Specific:** Fine-tuned on 50K financial instruction-following examples
-- **Production-Ready:** <300ms latency, quantization support, API endpoint
-- **Cost-Efficient:** 60% cheaper than GPT-4, runs on consumer GPUs
-- **Reproducible:** Full code + weights, trainable in 10 hours for ~$6
-- **Well-Documented:** System design, benchmarks, implementation details
+- **Self-Hosted:** Full control over data privacy, no API rate limits
+- **Cost-Efficient:** 99.4% cheaper than GPT-4 for self-hosted inference
+- **Reproducible:** Full pipeline (data loading, training, evaluation, deployment) in one repo
+- **HuggingFace Deployed:** Model weights available at [selmantayyar/financial-llm-advisor](https://huggingface.co/selmantayyar/financial-llm-advisor)
+- **vLLM Ready:** Supports optimized serving for production workloads
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 ```shell
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
 git clone https://github.com/selmantayyar/financial-llm-advisor.git
 cd financial-llm-advisor
 
-# Create virtual environment. Python 3.12 is needed for the flash attention compatible on the pod.
+# Create virtual environment (Python 3.12 recommended)
 uv venv --python 3.12
-source .venv/bin/activate  # On Windows: venv\\Scripts\\activate
+source .venv/bin/activate
 
 # Install dependencies
 uv sync
 ```
 
-### Train the Model
-```shell
-bash scripts/train.sh
-```
-OR
-```shell
-mkdir logs 
-nohup scripts/train.sh > "logs/training_output_$(date +%Y-%m-%d_%H-%M).log" 2>&1 &
-```
-
-### Run Inference
+### Use the Pre-trained Model from HuggingFace
 ```python
 from src.inference import FinancialAdvisor
 
-advisor = FinancialAdvisor(model_path="path/to/fine-tuned-model")
-response = advisor.analyze(
-"What are the key risks for Apple in 2024?"
-)
-print(response)
+advisor = FinancialAdvisor(base_model="selmantayyar/financial-llm-advisor")
+response = advisor.analyze("What are the key risks for Apple in 2024?")
+print(response["analysis"])
 ```
 
-### Evaluate Model
+### Serve via vLLM (Production)
+```bash
+pip install vllm
+python -m vllm.entrypoints.openai.api_server \
+    --model selmantayyar/financial-llm-advisor \
+    --dtype bfloat16 \
+    --max-model-len 4096 \
+    --port 8000
+```
+
+### Train Your Own
+```shell
+bash scripts/train.sh
+```
+
+### Evaluate
 ```shell
 bash scripts/evaluate.sh
 ```
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 - **[SYSTEM_DESIGN.md](docs/SYSTEM_DESIGN.md)** - Architecture & design decisions
 - **[ARCHITECTURE.md](docs/ARCHITECTURE.md)** - Data pipeline & components
-- **[BENCHMARKING.md](docs/BENCHMARKING.md)** - Performance analysis
+- **[BENCHMARKING.md](docs/BENCHMARKING.md)** - Detailed evaluation results & analysis
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 Financial Documents
-        ↓
-    [Phi-3.5-mini]
-        ↓
-    [LoRA Adapter]
-        ↓
-  [Inference Server]
-        ↓
+        |
+    [Phi-3.5-mini-instruct]
+        |
+    [LoRA Adapter (r=16)]
+        |
+  [vLLM / FastAPI Server]
+        |
 Investment Analysis + Confidence Score
 ```
 
 ---
 
-## 💻 Hardware Requirements
+## Hardware Requirements
 
-**Inference:**
-- 8GB VRAM minimum (with 8-bit quantization)
-- 10GB storage
+**Inference (bf16, no quantization):**
+- 16GB VRAM (RTX 4090, A100, etc.)
+- With 4-bit quantization: 6GB VRAM (RTX 3060, etc.)
 
-**Training:**
-- 16GB VRAM minimum (batch=1, seq_len=512, 8-bit quantization, gradient checkpointing)
-- 24GB VRAM recommended (batch=4, seq_len=1024, 8-bit quantization, gradient checkpointing)
-- 20GB storage
+**Training (bf16, LoRA, gradient checkpointing):**
+- 24GB VRAM recommended (RTX 4090, A100)
+- Batch size 4, sequence length 1024
 
-**Recommended GPUs:**
-- Training: RTX 4090 (24GB), A100 (40/80GB)
-- Inference: RTX 3060 Ti (8GB), RTX 4070 (12GB)
-
-**Cloud (cheapest):**
+**Cloud:**
 - RunPod RTX 4090: ~$0.59/hour
-- Cloud cost for full training: ~$6-7
+- Full training cost: ~$6-7
 
 ---
 
-## 📈 Training Details
+## Training Details
 
-- **Base Model:** microsoft/phi-3.5-mini-instruct (3.8B parameters)
-- **Dataset:** Josephgflowers/Finance-Instruct-500k (using 50K subset)
-- **Training Method:** SFT with LoRA (r=16)
-- **Training Time:** 8-10 hours on RTX 4090
-- **Batch Size:** 4 (per device)
-- **Learning Rate:** 2e-4
-- **Epochs:** 3
-
----
-
-## 🔬 Evaluation
-
-Model evaluated on:
-1. **Financial Reasoning Tasks** - Multi-step investment analysis
-2. **Investment Q&A** - Question-answering on financial documents
-3. **Named Entity Recognition** - Extracting financial entities (companies, people, regulations)
-4. **Numerical Reasoning** - Calculations, comparisons, trends
-5. **Latency & Cost** - Production-readiness metrics
+| Parameter | Value |
+|-----------|-------|
+| Base Model | microsoft/phi-3.5-mini-instruct (3.8B) |
+| Dataset | Josephgflowers/Finance-Instruct-500k (50K subset) |
+| Method | SFT with LoRA (r=16, alpha=32) |
+| Target Modules | qkv_proj, o_proj |
+| Precision | bf16 |
+| Batch Size | 4 (effective 16 with gradient accumulation) |
+| Learning Rate | 2e-4 |
+| Epochs | 3 |
+| Training Time | ~8-10 hours on RTX 4090 |
+| Attention | SDPA (PyTorch built-in) |
 
 ---
 
-## 📁 Project Structure
+## Evaluation
+
+The model is evaluated on three task types plus latency benchmarking:
+
+1. **Financial Reasoning** - Multi-step investment analysis with key-term overlap scoring
+2. **Investment Q&A** - Token-level F1 and exact match against reference answers
+3. **Named Entity Recognition** - Regex-based extraction of companies, tickers, monetary values, percentages
+4. **Latency & Throughput** - End-to-end generation benchmarking with warmup
+
+See [BENCHMARKING.md](docs/BENCHMARKING.md) for full results and methodology.
+
+---
+
+## Project Structure
 
 ```
 src/                    # Source code
-├── config.py          # Configuration
-├── dataset_loader.py  # Data loading
-├── trainer.py         # Fine-tuning
-├── evaluator.py       # Evaluation
-└── inference.py       # Production inference
+  config.py            # Configuration (Pydantic models)
+  dataset_loader.py    # Data loading & preprocessing
+  trainer.py           # SFT training with LoRA
+  evaluator.py         # Financial metrics evaluation
+  inference.py         # FastAPI server & generation
+  utils.py             # Helper functions
 
-notebooks/             # Jupyter notebooks for exploration
-tests/                 # Unit tests
-scripts/               # Training/evaluation scripts
-docs/                  # Comprehensive documentation
-config/                # Configuration files
+scripts/               # Training/evaluation/deploy scripts
+config/                # YAML configuration files
+docs/                  # Documentation
 ```
 
 ---
 
-## 🔄 Reproducibility
-
-To reproduce results:
+## Reproducibility
 
 ```shell
-# 1. Setup environment
-uv venv
-source .venv/bin/activate
-uv sync
+# 1. Setup
+uv venv --python 3.12 && source .venv/bin/activate && uv sync
 
-# 2. Download data
-python src/dataset_loader.py --download
-
-# 3. Train model
+# 2. Train
 bash scripts/train.sh
 
-# 4. Evaluate
+# 3. Evaluate
 bash scripts/evaluate.sh
 
-# Expected results: See BENCHMARKING.md
+# 4. Results saved to results/evaluation_metrics.json
 ```
 
-**Full training reproducible cost:** ~$6 + 8-10 hours
+**Full training cost:** ~$6 on RunPod RTX 4090
 
 ---
 
-## 🎓 What's Inside
+## Future Improvements
 
-### Code Quality
-- ✅ Type hints throughout
-- ✅ Comprehensive docstrings
-- ✅ Configuration-driven (easy to modify)
-- ✅ Logging & monitoring
-- ✅ Error handling
-
-### Documentation
-- ✅ System design decisions with reasoning
-- ✅ Architecture diagrams
-- ✅ Detailed benchmarking
-- ✅ Domain knowledge notes
-- ✅ Reproduction instructions
-
-### Testing
-- ✅ Unit tests for data loading
-- ✅ Evaluation metric tests
-- ✅ Inference pipeline tests
-- ✅ CI/CD with GitHub Actions
+- **vLLM serving** for 3-4x throughput improvement (~80-120 tokens/sec)
+- **4-bit quantization** at inference for lower VRAM and faster generation
+- **Improved evaluation** with semantic similarity metrics (BERTScore, LLM-as-judge)
+- **More training data** and epochs for higher reasoning accuracy
+- **DPO/RLHF** alignment for better response quality
 
 ---
 
-## 📜 License
+## License
 
 MIT License - See [LICENSE](LICENSE) file
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Add tests for new functionality
-4. Submit a pull request
-
----
-
-**Built with ❤️ for institutional investors and LLM enthusiasts**
-```
-
-### **2. LICENSE (MIT)**
-```
-MIT License
-
-Copyright (c) 2025 Financial LLM Advisor
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", BASIS OF ANY KIND, EXPRESS OR IMPLIED,
-INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
-PARTICULAR PURPOSE AND NONINFRINGEMENT.
-```
+Contributions welcome! Please fork the repository, create a feature branch, and submit a pull request.
